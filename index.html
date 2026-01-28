@@ -2,25 +2,24 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>古制時辰輪盤 V5</title>
+    <title>古制時辰輪盤 V6</title>
     <style>
         body {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             min-height: 100vh; margin: 0; background: #f4f4f4;
             font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+            padding: 20px;
         }
         .version { position: absolute; top: 10px; right: 20px; color: #999; }
         
-        .container { position: relative; width: 600px; height: 600px; }
+        .container { position: relative; width: 500px; height: 500px; margin-bottom: 20px; }
 
-        /* 旋轉動畫套用在整個 SVG 組件上 */
         #wheel-svg {
             width: 100%; height: 100%;
             transition: transform 6s cubic-bezier(0.15, 0, 0.15, 1);
             transform-origin: center;
         }
 
-        /* 指針與按鈕 */
         .arrow {
             position: absolute; top: 35px; left: 50%; transform: translateX(-50%);
             width: 0; height: 0; border-left: 15px solid transparent;
@@ -33,12 +32,22 @@
             border-radius: 50%; cursor: pointer; font-size: 20px; font-weight: bold;
             display: flex; align-items: center; justify-content: center; z-index: 11;
         }
-        #result { margin-top: 20px; font-size: 24px; font-weight: bold; color: #333; }
+
+        /* 題目顯示區域 */
+        #quiz-panel {
+            width: 90%; max-width: 500px; background: white;
+            padding: 20px; border-radius: 12px; border: 2px solid #ddd;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center;
+        }
+        .quiz-title { font-size: 24px; color: #e74c3c; margin-bottom: 10px; font-weight: bold; }
+        .quiz-time { font-size: 18px; color: #666; margin-bottom: 15px; }
+        .quiz-detail { font-size: 16px; line-height: 1.6; color: #333; text-align: left; }
+        .highlight { color: #2980b9; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="version">Version: V5</div>
+<div class="version">Version: V6</div>
 
 <div class="container">
     <div class="arrow"></div>
@@ -46,7 +55,6 @@
     
     <svg id="wheel-svg" viewBox="0 0 500 500">
         <g id="hour-labels"></g>
-        
         <g id="main-group">
             <g id="sectors"></g>
             <g id="texts"></g>
@@ -57,114 +65,123 @@
     </svg>
 </div>
 
-<div id="result">SVG 結構已鎖定，不再走位</div>
+<div id="quiz-panel">
+    <div class="quiz-title" id="res-title">請開始抽獎</div>
+    <div class="quiz-time" id="res-time">對應時間將在此顯示</div>
+    <div class="quiz-detail" id="res-detail">
+        轉動輪盤，學習古代計時制度與十二時辰的奧秘。
+    </div>
+</div>
 
 <script>
     const svgNS = "http://www.w3.org/2000/svg";
     const shichens = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
-    const colors = [
-        "#a0c4e8", "#a0c4e8", "#d1e3f5", "#d1e3f5", "#e8f0f8", "#e8f0f8", // 子丑寅
-        "#e8f0f8", "#e8f0f8", "#fff5cc", "#fff5cc", "#ffeb99", "#ffeb99", // 卯辰巳
-        "#ffd966", "#ffd966", "#ffd966", "#ffd966", "#ffeb99", "#ffeb99", // 午未申
-        "#fff5cc", "#fff5cc", "#e8f0f8", "#e8f0f8", "#d1e3f5", "#d1e3f5"  // 酉戌亥
-    ];
+    const colors = ["#a0c4e8", "#a0c4e8", "#d1e3f5", "#d1e3f5", "#e8f0f8", "#e8f0f8", "#e8f0f8", "#e8f0f8", "#fff5cc", "#fff5cc", "#ffeb99", "#ffeb99", "#ffd966", "#ffd966", "#ffd966", "#ffd966", "#ffeb99", "#ffeb99", "#fff5cc", "#fff5cc", "#e8f0f8", "#e8f0f8", "#d1e3f5", "#d1e3f5"];
     const gengMap = { "戌":"一更", "亥":"二更", "子":"三更", "丑":"四更", "寅":"五更" };
+    
+    // 題目資料庫
+    const timeInfo = {
+        "子": { name: "夜半", desc: "是一天中的第一個時辰。此時正是黑夜中最黑暗的時刻。" },
+        "丑": { name: "雞鳴", desc: "又稱荒雞。指雞叫的時候，天色由黑轉清。" },
+        "寅": { name: "平旦", desc: "黎明時分，太陽即將升起，天色剛開始發白。" },
+        "卯": { name: "日出", desc: "古代衙門開始辦公的時間，因此又稱為「點卯」。" },
+        "辰": { name: "食時", desc: "古人吃早飯（朝食）的時間。" },
+        "巳": { name: "隅中", desc: "臨近中午，太陽已經升到一定高度。" },
+        "午": { name: "日中", desc: "太陽運行到中天，是一天中陽氣最盛的時刻。" },
+        "未": { name: "日昳", desc: "太陽開始偏西，是一天中吃第二頓飯（夕食）的時間。" },
+        "申": { name: "晡時", desc: "又稱日鋪，是古人下午勞動或吃晚餐的時間。" },
+        "酉": { name: "日入", desc: "太陽落山，雞鳥歸巢，萬物開始靜止。" },
+        "戌": { name: "黃昏", desc: "天色昏暗，萬物朦朧，也是進入「一更」的時間。" },
+        "亥": { name: "人定", desc: "夜深人靜，人們已經停止活動，安歇入睡。" }
+    };
 
+    // 初始化輪盤 (保持 V5 的高品質 SVG 結構)
     const sectorsG = document.getElementById('sectors');
     const textsG = document.getElementById('texts');
     const hourG = document.getElementById('hour-labels');
 
-    // 建立扇區與文字
     for (let i = 0; i < 24; i++) {
         const angle = i * 15;
         const rad1 = (angle - 90) * Math.PI / 180;
         const rad2 = (angle + 15 - 90) * Math.PI / 180;
-        
-        // 1. 繪製扇區 (背景)
         const x1 = 250 + 215 * Math.cos(rad1);
         const y1 = 250 + 215 * Math.sin(rad1);
         const x2 = 250 + 215 * Math.cos(rad2);
         const y2 = 250 + 215 * Math.sin(rad2);
-        
         const path = document.createElementNS(svgNS, "path");
         path.setAttribute("d", `M 250 250 L ${x1} ${y1} A 215 215 0 0 1 ${x2} ${y2} Z`);
         path.setAttribute("fill", colors[i]);
         path.setAttribute("stroke", "white");
-        path.setAttribute("stroke-width", "0.5");
         sectorsG.appendChild(path);
 
-        // 2. 繪製文字組 (初正、更次)
-        const textAngle = angle + 7.5;
         const group = document.createElementNS(svgNS, "g");
-        group.setAttribute("transform", `rotate(${textAngle}, 250, 250)`);
-
-        // 初/正
+        group.setAttribute("transform", `rotate(${angle + 7.5}, 250, 250)`);
         const t1 = document.createElementNS(svgNS, "text");
-        t1.setAttribute("x", "250"); t1.setAttribute("y", "65");
-        t1.setAttribute("text-anchor", "middle");
-        t1.setAttribute("font-size", "16");
+        t1.setAttribute("x", "250"); t1.setAttribute("y", "65"); t1.setAttribute("text-anchor", "middle"); t1.setAttribute("font-size", "16");
         t1.textContent = i % 2 === 0 ? "初" : "正";
         group.appendChild(t1);
 
-        // 更次
         const curS = shichens[Math.floor(i/2)];
         if (gengMap[curS]) {
             const t2 = document.createElementNS(svgNS, "text");
-            t2.setAttribute("x", "250"); t2.setAttribute("y", "120");
-            t2.setAttribute("text-anchor", "middle");
-            t2.setAttribute("font-size", "14");
+            t2.setAttribute("x", "250"); t2.setAttribute("y", "120"); t2.setAttribute("text-anchor", "middle"); t2.setAttribute("font-size", "14");
             t2.textContent = gengMap[curS];
             group.appendChild(t2);
         }
         textsG.appendChild(group);
 
-        // 3. 時辰 (跨格置中)
         if (i % 2 === 0) {
             const sGroup = document.createElementNS(svgNS, "g");
             sGroup.setAttribute("transform", `rotate(${angle + 15}, 250, 250)`);
             const ts = document.createElementNS(svgNS, "text");
-            ts.setAttribute("x", "250"); ts.setAttribute("y", "175");
-            ts.setAttribute("text-anchor", "middle");
-            ts.setAttribute("font-size", "32");
-            ts.setAttribute("font-weight", "bold");
+            ts.setAttribute("x", "250"); ts.setAttribute("y", "175"); ts.setAttribute("text-anchor", "middle"); ts.setAttribute("font-size", "32"); ts.setAttribute("font-weight", "bold");
             ts.textContent = curS;
             sGroup.appendChild(ts);
             textsG.appendChild(sGroup);
         }
     }
 
-    // 繪製外圍小時數字 (1, 3, 5... 23)
     for (let h = 1; h <= 23; h += 2) {
-        const hAngle = h * 15;
-        const hRad = (hAngle - 90) * Math.PI / 180;
-        const tx = 250 + 240 * Math.cos(hRad);
-        const ty = 250 + 240 * Math.sin(hRad);
-        
+        const hRad = (h * 15 - 90) * Math.PI / 180;
         const th = document.createElementNS(svgNS, "text");
-        th.setAttribute("x", tx); th.setAttribute("y", ty + 8);
-        th.setAttribute("text-anchor", "middle");
-        th.setAttribute("font-size", "22");
-        th.setAttribute("font-weight", "bold");
+        th.setAttribute("x", 250 + 240 * Math.cos(hRad)); th.setAttribute("y", 250 + 240 * Math.sin(hRad) + 8);
+        th.setAttribute("text-anchor", "middle"); th.setAttribute("font-size", "22"); th.setAttribute("font-weight", "bold");
         th.textContent = h;
         hourG.appendChild(th);
     }
 
-    // 抽獎邏輯
+    // 抽獎與題目生成
     let currDeg = 0;
     document.getElementById('btn').onclick = () => {
         const rotate = Math.floor(Math.random() * 360) + 3600;
         currDeg += rotate;
         document.getElementById('wheel-svg').style.transform = `rotate(-${currDeg}deg)`;
         
-        const res = document.getElementById('result');
-        res.innerText = "旋轉中...";
+        document.getElementById('res-title').innerText = "正在掐指一算...";
+        document.getElementById('res-time').innerText = "";
+        document.getElementById('res-detail').innerText = "";
 
         setTimeout(() => {
             const final = currDeg % 360;
             const idx = Math.floor(final / 15);
-            const s = shichens[Math.floor(idx/2)];
-            const p = idx % 2 === 0 ? "初" : "正";
-            res.innerText = `結果：${s}時${p}`;
+            const sName = shichens[Math.floor(idx/2)];
+            const part = idx % 2 === 0 ? "初" : "正";
+            
+            // 計算現代時間
+            let startHour = (Math.floor(idx/2) * 2 - 1 + 24) % 24;
+            if (idx % 2 === 1) startHour = (startHour + 1) % 24;
+            const endHour = (startHour + 1) % 24;
+            const timeStr = `${startHour.toString().padStart(2,'0')}:00 - ${endHour.toString().padStart(2,'0')}:00`;
+
+            const info = timeInfo[sName];
+            
+            document.getElementById('res-title').innerText = `【${sName}時 · ${part}】`;
+            document.getElementById('res-time').innerText = `現代時間：${timeStr}`;
+            document.getElementById('res-detail').innerHTML = `
+                <p>● 古代名稱：<span class="highlight">${info.name}</span></p>
+                <p>● 題目背景：${info.desc}</p>
+                <p>● 輪盤提示：這屬於<span class="highlight">${gengMap[sName] || '日間'}</span>時段，反映了古人「日出而作，日入而息」的生活節奏。</p>
+            `;
         }, 6000);
     };
 </script>
