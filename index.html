@@ -2,230 +2,161 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>古制時辰輪盤 V2</title>
+    <title>古制時辰輪盤 V4</title>
     <style>
         :root {
-            --blue-deep: #a0c4e8; /* 子丑時 */
-            --blue-light: #d1e3f5; /* 亥寅時 */
-            --white-blue: #e8f0f8; /* 戌卯時 */
-            --yellow-light: #fff5cc; /* 酉辰時 */
-            --yellow-mid: #ffeb99; /* 申巳時 */
-            --yellow-deep: #ffd966; /* 未午時 */
+            --size: 550px;
+            --c-night: #a0c4e8; --c-night-light: #d1e3f5; --c-dawn: #e8f0f8;
+            --c-dusk: #fff5cc; --c-day-light: #ffeb99; --c-day: #ffd966;
         }
 
         body {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f5f5f5;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; margin: 0; background: #f0f0f0;
             font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
         }
 
-        .version-tag { position: absolute; top: 10px; right: 10px; color: #999; }
+        .version { position: absolute; top: 10px; right: 20px; color: #999; }
 
-        /* 外部容器：包含外圍數字 */
-        .outer-container {
-            position: relative;
-            width: 550px;
-            height: 550px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        /* 旋轉舞台 */
+        .stage {
+            position: relative; width: var(--size); height: var(--size);
+            display: flex; align-items: center; justify-content: center;
         }
 
-        /* 旋轉主體 */
-        .wheel-wrap {
-            position: relative;
-            width: 450px;
-            height: 450px;
-            border-radius: 50%;
-            border: 2px solid #ccc;
-            background: #fff;
-            transition: transform 5s cubic-bezier(0.1, 0, 0.1, 1);
-            overflow: hidden;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        /* 外部小時數字 (1-23) - 固定不動 */
+        .hour-outer {
+            position: absolute; width: 100%; height: 100%;
+            border-radius: 50%; pointer-events: none;
+        }
+        .h-val {
+            position: absolute; width: 40px; height: 40px; line-height: 40px;
+            text-align: center; font-size: 26px; font-weight: bold;
+            left: 50%; top: 50%; margin: -20px;
         }
 
-        /* 24個扇區背景 */
-        .sector {
-            position: absolute;
-            width: 50%;
-            height: 50%;
-            left: 50%;
-            top: 50%;
-            transform-origin: 0 0;
-            border: 0.5px solid rgba(255,255,255,0.5);
+        /* 輪盤主體 */
+        #wheel {
+            position: relative; width: 460px; height: 460px;
+            border-radius: 50%; border: 3px solid #666;
+            transition: transform 6s cubic-bezier(0.1, 0, 0.1, 1);
+            /* 使用 conic-gradient 直接畫出24格背景 */
+            background: conic-gradient(
+                var(--c-night) 0deg 15deg, var(--c-night) 15deg 45deg, var(--c-night-light) 45deg 75deg,
+                var(--c-dawn) 75deg 135deg, var(--c-dusk) 135deg 165deg, var(--c-day-light) 165deg 195deg,
+                var(--c-day) 195deg 255deg, var(--c-day-light) 255deg 285deg, var(--c-dusk) 285deg 315deg,
+                var(--c-dawn) 315deg 345deg, var(--c-night) 345deg 360deg
+            );
         }
 
-        /* 文字樣式 */
-        .label-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
+        /* 文字元件容器 */
+        .label-box {
+            position: absolute; width: 100%; height: 100%;
+            display: flex; justify-content: center; transform-origin: center;
         }
 
-        .text-item {
-            position: absolute;
-            width: 100%;
-            text-align: center;
-            left: 0;
-            transform-origin: center center;
+        /* 文字內容分佈 */
+        .txt-chuzheng { position: absolute; top: 15px; font-size: 18px; font-weight: bold; }
+        .txt-geng { position: absolute; top: 80px; font-size: 16px; color: #333; }
+        .txt-shichen { position: absolute; top: 140px; font-size: 34px; font-weight: bold; }
+
+        /* 中心按鈕與指針 */
+        .pointer {
+            position: absolute; top: -10px; width: 0; height: 0;
+            border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-top: 35px solid #e74c3c; z-index: 100;
+        }
+        #btn {
+            position: absolute; width: 66px; height: 66px; background: #fff;
+            border: 3px solid #333; border-radius: 50%; z-index: 101;
+            cursor: pointer; font-size: 24px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
-        .shichen { font-size: 32px; font-weight: bold; top: 120px; }
-        .geng { font-size: 16px; top: 75px; color: #444; }
-        .chuzheng { font-size: 18px; top: 25px; }
-
-        /* 外圍小時數字 */
-        .hour-num {
-            position: absolute;
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-        }
-
-        /* 指針與中心按鈕 */
-        .top-pointer {
-            position: absolute;
-            top: 20px;
-            z-index: 100;
-            width: 0; height: 0;
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-top: 30px solid #e74c3c;
-        }
-
-        #spin-btn {
-            position: absolute;
-            z-index: 101;
-            width: 60px;
-            height: 60px;
-            background: #fff;
-            border: 3px solid #333;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 20px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-
-        #result { margin-top: 40px; font-size: 24px; font-weight: bold; color: #222; }
+        #result { margin-top: 50px; font-size: 26px; font-weight: bold; color: #333; }
     </style>
 </head>
 <body>
 
-    <div class="version-tag">Version: V2</div>
+    <div class="version">Version: V4</div>
 
-    <div class="outer-container">
-        <div class="top-pointer"></div>
-        <div id="spin-btn">抽</div>
-        
-        <div id="wheel" class="wheel-wrap"></div>
-
-        <div id="hour-labels"></div>
+    <div class="stage">
+        <div class="pointer"></div>
+        <div id="btn">抽</div>
+        <div class="hour-outer" id="hour-ring"></div>
+        <div id="wheel"></div>
     </div>
 
-    <div id="result">準備好就點擊「抽」吧！</div>
+    <div id="result">比照原圖配置已就緒</div>
 
     <script>
         const wheel = document.getElementById('wheel');
-        const hourLabels = document.getElementById('hour-labels');
+        const hourRing = document.getElementById('hour-ring');
+        
+        // 24格資料配置 (角度從 0 開始，子正為首)
         const data = [
-            { s: "子", c: "正", g: "三更", bg: "var(--blue-deep)" },
-            { s: "丑", c: "初", g: "四更", bg: "var(--blue-deep)" },
-            { s: "丑", c: "正", g: "四更", bg: "var(--blue-light)" },
-            { s: "寅", c: "初", g: "五更", bg: "var(--blue-light)" },
-            { s: "寅", c: "正", g: "五更", bg: "var(--white-blue)" },
-            { s: "卯", c: "初", g: "",     bg: "var(--white-blue)" },
-            { s: "卯", c: "正", g: "",     bg: "var(--white-blue)" },
-            { s: "辰", c: "初", g: "",     bg: "var(--yellow-light)" },
-            { s: "辰", c: "正", g: "",     bg: "var(--yellow-light)" },
-            { s: "巳", c: "初", g: "",     bg: "var(--yellow-mid)" },
-            { s: "巳", c: "正", g: "",     bg: "var(--yellow-mid)" },
-            { s: "午", c: "初", g: "",     bg: "var(--yellow-deep)" },
-            { s: "午", c: "正", g: "",     bg: "var(--yellow-deep)" },
-            { s: "未", c: "初", g: "",     bg: "var(--yellow-deep)" },
-            { s: "未", c: "正", g: "",     bg: "var(--yellow-mid)" },
-            { s: "申", c: "初", g: "",     bg: "var(--yellow-mid)" },
-            { s: "申", c: "正", g: "",     bg: "var(--yellow-light)" },
-            { s: "酉", c: "初", g: "",     bg: "var(--yellow-light)" },
-            { s: "酉", c: "正", g: "",     bg: "var(--white-blue)" },
-            { s: "戌", c: "初", g: "一更", bg: "var(--white-blue)" },
-            { s: "戌", c: "正", g: "一更", bg: "var(--blue-light)" },
-            { s: "亥", c: "初", g: "二更", bg: "var(--blue-light)" },
-            { s: "亥", c: "正", g: "二更", bg: "var(--blue-deep)" },
-            { s: "子", c: "初", g: "三更", bg: "var(--blue-deep)" }
+            { s: "子", c: "正", g: "三更" }, { s: "丑", c: "初", g: "四更" }, { s: "丑", c: "正", g: "四更" },
+            { s: "寅", c: "初", g: "五更" }, { s: "寅", c: "正", g: "五更" }, { s: "卯", c: "初", g: "" },
+            { s: "卯", c: "正", g: "" },     { s: "辰", c: "初", g: "" },     { s: "辰", c: "正", g: "" },
+            { s: "巳", c: "初", g: "" },     { s: "巳", c: "正", g: "" },     { s: "午", c: "初", g: "" },
+            { s: "午", c: "正", g: "" },     { s: "未", c: "初", g: "" },     { s: "未", c: "正", g: "" },
+            { s: "申", c: "初", g: "" },     { s: "申", c: "正", g: "" },     { s: "酉", c: "初", g: "" },
+            { s: "酉", c: "正", g: "" },     { s: "戌", c: "初", g: "一更" }, { s: "戌", c: "正", g: "一更" },
+            { s: "亥", c: "初", g: "二更" }, { s: "亥", c: "正", g: "二更" }, { s: "子", c: "初", g: "三更" }
         ];
 
-        // 初始化輪盤 (24格)
+        // 1. 產生內部文字 (24格旋轉)
         data.forEach((item, i) => {
             const angle = i * 15;
+            const box = document.createElement('div');
+            box.className = 'label-box';
+            box.style.transform = `rotate(${angle}deg)`;
             
-            // 扇區背景
-            const sec = document.createElement('div');
-            sec.className = 'sector';
-            sec.style.transform = `rotate(${angle - 7.5}deg) skewY(-75deg)`;
-            sec.style.backgroundColor = item.bg;
-            wheel.appendChild(sec);
-
-            // 文字
-            const labelWrap = document.createElement('div');
-            labelWrap.className = 'label-container';
-            labelWrap.style.transform = `rotate(${angle}deg)`;
-            
-            // 初/正
-            labelWrap.innerHTML += `<div class="text-item chuzheng">${item.c}</div>`;
+            // 初正
+            box.innerHTML += `<div class="txt-chuzheng">${item.c}</div>`;
             // 更次
-            if(item.g) labelWrap.innerHTML += `<div class="text-item geng">${item.g}</div>`;
-            // 時辰 (只在每兩個 sector 的交界處顯示，這裡採簡化做法：初正都標或根據原圖對齊)
-            if(i % 2 === 1) { // 讓時辰字出現在兩格中間
-                 const sNode = document.createElement('div');
-                 sNode.className = 'text-item shichen';
-                 sNode.innerText = item.s;
-                 sNode.style.transform = `rotate(-7.5deg)`; 
-                 labelWrap.appendChild(sNode);
+            if(item.g) box.innerHTML += `<div class="txt-geng">${item.g}</div>`;
+            // 時辰 (跨格置中)
+            if(i % 2 === 1) {
+                const s = document.createElement('div');
+                s.className = 'txt-shichen';
+                s.innerText = item.s;
+                s.style.transform = `rotate(-7.5deg)`; // 逆轉回兩格中間
+                box.appendChild(s);
             }
-            wheel.appendChild(labelWrap);
+            wheel.appendChild(box);
         });
 
-        // 放置外圍數字 (1, 3, 5... 23)
-        const hours = [1,3,5,7,9,11,13,15,17,19,21,23];
-        hours.forEach(h => {
-            const hDiv = document.createElement('div');
-            hDiv.className = 'hour-num';
-            const angle = (h * 15); // 每個小時對應角度
-            const radius = 255; 
-            const x = Math.sin(angle * Math.PI / 180) * radius;
-            const y = -Math.cos(angle * Math.PI / 180) * radius;
-            hDiv.style.transform = `translate(${x}px, ${y}px)`;
-            hDiv.innerText = h;
-            hourLabels.appendChild(hDiv);
-        });
+        // 2. 產生外圍小時 (1, 3, 5... 23)
+        for (let h = 1; h <= 23; h += 2) {
+            const hVal = document.createElement('div');
+            hVal.className = 'h-num h-val';
+            const rad = (h * 15) * (Math.PI / 180);
+            const r = 255; // 半徑
+            hVal.style.left = `calc(50% + ${Math.sin(rad) * r}px)`;
+            hVal.style.top = `calc(50% - ${Math.cos(rad) * r}px)`;
+            hVal.innerText = h;
+            hourRing.appendChild(hVal);
+        }
 
-        // 抽獎邏輯
-        let currentDeg = 0;
-        document.getElementById('spin-btn').addEventListener('click', () => {
-            const rotate = Math.floor(Math.random() * 360) + 3600; 
-            currentDeg += rotate;
-            wheel.style.transform = `rotate(-${currentDeg}deg)`;
-
+        // 3. 抽獎邏輯
+        let currentRotation = 0;
+        document.getElementById('btn').onclick = () => {
+            const spin = Math.floor(Math.random() * 360) + 3600;
+            currentRotation += spin;
+            wheel.style.transform = `rotate(-${currentRotation}deg)`;
+            
             const res = document.getElementById('result');
-            res.innerText = "時鐘轉動中...";
+            res.innerText = "旋轉中...";
 
             setTimeout(() => {
-                const finalAngle = currentDeg % 360;
-                const idx = Math.round(finalAngle / 15) % 24;
+                const finalAngle = currentRotation % 360;
+                const idx = Math.floor(finalAngle / 15);
                 const win = data[idx];
-                res.innerText = `抽獎結果：${win.s}時${win.c} (${win.g || '晝'})`;
-            }, 5000);
-        });
+                res.innerText = `抽獎結果：${win.s}時${win.c}`;
+            }, 6000);
+        };
     </script>
 </body>
 </html>
