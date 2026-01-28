@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>十二時辰輪盤抽獎</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+            font-family: "Microsoft JhengHei", sans-serif;
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+        }
+
+        /* 輪盤主體 */
+        #wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 10px solid #333;
+            position: relative;
+            overflow: hidden;
+            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
+            background: #fff;
+        }
+
+        /* 時辰扇區 */
+        .segment {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            transform-origin: 100% 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .segment span {
+            transform: rotate(75deg); /* 調整文字角度使其垂直於半徑 */
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-top: -60px;
+            margin-left: -60px;
+        }
+
+        /* 顏色區分：晝夜感 */
+        .night { background-color: #a5c2f0; } /* 亥子丑 */
+        .dawn  { background-color: #d8e5f7; } /* 寅卯 */
+        .day   { background-color: #fceea7; } /* 辰巳午未 */
+        .dusk  { background-color: #fdf2c4; } /* 申酉戌 */
+
+        /* 指針 */
+        .pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 40px solid #e74c3c;
+            z-index: 10;
+        }
+
+        /* 按鈕 */
+        #spin-btn {
+            margin-top: 30px;
+            padding: 10px 30px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+
+        #spin-btn:hover { background-color: #555; }
+        
+        #result {
+            margin-top: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="wheel-container">
+        <div class="pointer"></div>
+        <div id="wheel"></div>
+    </div>
+
+    <button id="spin-btn">啟動時辰輪轉</button>
+    <div id="result">請點擊按鈕抽獎</div>
+
+    <script>
+        const sectors = [
+            { label: "子", time: "23:00 - 01:00", class: "night" },
+            { label: "丑", time: "01:00 - 03:00", class: "night" },
+            { label: "寅", time: "03:00 - 05:00", class: "dawn" },
+            { label: "卯", time: "05:00 - 07:00", class: "dawn" },
+            { label: "辰", time: "07:00 - 09:00", class: "day" },
+            { label: "巳", time: "09:00 - 11:00", class: "day" },
+            { label: "午", time: "11:00 - 13:00", class: "day" },
+            { label: "未", time: "13:00 - 15:00", class: "day" },
+            { label: "申", time: "15:00 - 17:00", class: "dusk" },
+            { label: "酉", time: "17:00 - 19:00", class: "dusk" },
+            { label: "戌", time: "19:00 - 21:00", class: "dusk" },
+            { label: "亥", time: "21:00 - 23:00", class: "night" }
+        ];
+
+        const wheel = document.getElementById('wheel');
+        const spinBtn = document.getElementById('spin-btn');
+        const resultDisplay = document.getElementById('result');
+
+        // 初始化輪盤
+        const numSectors = sectors.length;
+        const rotateAngle = 360 / numSectors;
+
+        sectors.forEach((sector, i) => {
+            const seg = document.createElement('div');
+            seg.className = `segment ${sector.class}`;
+            // 旋轉每個區塊，並使用 skew 做出扇形效果（這裡簡化處理）
+            seg.style.transform = `rotate(${i * rotateAngle}deg) skewY(${90 - rotateAngle}deg)`;
+            
+            const span = document.createElement('span');
+            span.innerText = sector.label;
+            // 反向扭曲文字使其正常顯示
+            span.style.transform = `skewY(-${90 - rotateAngle}deg) rotate(${-rotateAngle/2}deg) translateY(-100px)`;
+            
+            seg.appendChild(span);
+            wheel.appendChild(seg);
+        });
+
+        let currentRotation = 0;
+
+        spinBtn.addEventListener('click', () => {
+            const randomSpin = Math.floor(Math.random() * 360) + 1800; // 旋轉至少 5 圈
+            currentRotation += randomSpin;
+            wheel.style.transform = `rotate(-${currentRotation}deg)`;
+
+            spinBtn.disabled = true;
+            resultDisplay.innerText = "旋轉中...";
+
+            setTimeout(() => {
+                spinBtn.disabled = false;
+                // 計算停止位置
+                const actualDeg = currentRotation % 360;
+                const sectorIndex = Math.floor(actualDeg / rotateAngle);
+                const win = sectors[sectorIndex];
+                resultDisplay.innerText = `結果：${win.label}時 (${win.time})`;
+            }, 4000);
+        });
+    </script>
+</body>
+</html>
