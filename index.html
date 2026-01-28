@@ -2,161 +2,171 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>古制時辰輪盤 V4</title>
+    <title>古制時辰輪盤 V5</title>
     <style>
-        :root {
-            --size: 550px;
-            --c-night: #a0c4e8; --c-night-light: #d1e3f5; --c-dawn: #e8f0f8;
-            --c-dusk: #fff5cc; --c-day-light: #ffeb99; --c-day: #ffd966;
-        }
-
         body {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-height: 100vh; margin: 0; background: #f0f0f0;
+            min-height: 100vh; margin: 0; background: #f4f4f4;
             font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
         }
-
         .version { position: absolute; top: 10px; right: 20px; color: #999; }
+        
+        .container { position: relative; width: 600px; height: 600px; }
 
-        /* 旋轉舞台 */
-        .stage {
-            position: relative; width: var(--size); height: var(--size);
-            display: flex; align-items: center; justify-content: center;
+        /* 旋轉動畫套用在整個 SVG 組件上 */
+        #wheel-svg {
+            width: 100%; height: 100%;
+            transition: transform 6s cubic-bezier(0.15, 0, 0.15, 1);
+            transform-origin: center;
         }
 
-        /* 外部小時數字 (1-23) - 固定不動 */
-        .hour-outer {
-            position: absolute; width: 100%; height: 100%;
-            border-radius: 50%; pointer-events: none;
-        }
-        .h-val {
-            position: absolute; width: 40px; height: 40px; line-height: 40px;
-            text-align: center; font-size: 26px; font-weight: bold;
-            left: 50%; top: 50%; margin: -20px;
-        }
-
-        /* 輪盤主體 */
-        #wheel {
-            position: relative; width: 460px; height: 460px;
-            border-radius: 50%; border: 3px solid #666;
-            transition: transform 6s cubic-bezier(0.1, 0, 0.1, 1);
-            /* 使用 conic-gradient 直接畫出24格背景 */
-            background: conic-gradient(
-                var(--c-night) 0deg 15deg, var(--c-night) 15deg 45deg, var(--c-night-light) 45deg 75deg,
-                var(--c-dawn) 75deg 135deg, var(--c-dusk) 135deg 165deg, var(--c-day-light) 165deg 195deg,
-                var(--c-day) 195deg 255deg, var(--c-day-light) 255deg 285deg, var(--c-dusk) 285deg 315deg,
-                var(--c-dawn) 315deg 345deg, var(--c-night) 345deg 360deg
-            );
-        }
-
-        /* 文字元件容器 */
-        .label-box {
-            position: absolute; width: 100%; height: 100%;
-            display: flex; justify-content: center; transform-origin: center;
-        }
-
-        /* 文字內容分佈 */
-        .txt-chuzheng { position: absolute; top: 15px; font-size: 18px; font-weight: bold; }
-        .txt-geng { position: absolute; top: 80px; font-size: 16px; color: #333; }
-        .txt-shichen { position: absolute; top: 140px; font-size: 34px; font-weight: bold; }
-
-        /* 中心按鈕與指針 */
-        .pointer {
-            position: absolute; top: -10px; width: 0; height: 0;
-            border-left: 15px solid transparent; border-right: 15px solid transparent;
-            border-top: 35px solid #e74c3c; z-index: 100;
+        /* 指針與按鈕 */
+        .arrow {
+            position: absolute; top: 35px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 15px solid transparent;
+            border-right: 15px solid transparent; border-top: 30px solid #e74c3c;
+            z-index: 10;
         }
         #btn {
-            position: absolute; width: 66px; height: 66px; background: #fff;
-            border: 3px solid #333; border-radius: 50%; z-index: 101;
-            cursor: pointer; font-size: 24px; font-weight: bold;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 60px; height: 60px; background: white; border: 3px solid #333;
+            border-radius: 50%; cursor: pointer; font-size: 20px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; z-index: 11;
         }
-
-        #result { margin-top: 50px; font-size: 26px; font-weight: bold; color: #333; }
+        #result { margin-top: 20px; font-size: 24px; font-weight: bold; color: #333; }
     </style>
 </head>
 <body>
 
-    <div class="version">Version: V4</div>
+<div class="version">Version: V5</div>
 
-    <div class="stage">
-        <div class="pointer"></div>
-        <div id="btn">抽</div>
-        <div class="hour-outer" id="hour-ring"></div>
-        <div id="wheel"></div>
-    </div>
-
-    <div id="result">比照原圖配置已就緒</div>
-
-    <script>
-        const wheel = document.getElementById('wheel');
-        const hourRing = document.getElementById('hour-ring');
+<div class="container">
+    <div class="arrow"></div>
+    <div id="btn">抽</div>
+    
+    <svg id="wheel-svg" viewBox="0 0 500 500">
+        <g id="hour-labels"></g>
         
-        // 24格資料配置 (角度從 0 開始，子正為首)
-        const data = [
-            { s: "子", c: "正", g: "三更" }, { s: "丑", c: "初", g: "四更" }, { s: "丑", c: "正", g: "四更" },
-            { s: "寅", c: "初", g: "五更" }, { s: "寅", c: "正", g: "五更" }, { s: "卯", c: "初", g: "" },
-            { s: "卯", c: "正", g: "" },     { s: "辰", c: "初", g: "" },     { s: "辰", c: "正", g: "" },
-            { s: "巳", c: "初", g: "" },     { s: "巳", c: "正", g: "" },     { s: "午", c: "初", g: "" },
-            { s: "午", c: "正", g: "" },     { s: "未", c: "初", g: "" },     { s: "未", c: "正", g: "" },
-            { s: "申", c: "初", g: "" },     { s: "申", c: "正", g: "" },     { s: "酉", c: "初", g: "" },
-            { s: "酉", c: "正", g: "" },     { s: "戌", c: "初", g: "一更" }, { s: "戌", c: "正", g: "一更" },
-            { s: "亥", c: "初", g: "二更" }, { s: "亥", c: "正", g: "二更" }, { s: "子", c: "初", g: "三更" }
-        ];
+        <g id="main-group">
+            <g id="sectors"></g>
+            <g id="texts"></g>
+            <circle cx="250" cy="250" r="180" fill="none" stroke="white" stroke-width="1.5" stroke-dasharray="5,5" opacity="0.6"/>
+            <circle cx="250" cy="250" r="140" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/>
+            <circle cx="250" cy="250" r="215" fill="none" stroke="#ccc" stroke-width="2"/>
+        </g>
+    </svg>
+</div>
 
-        // 1. 產生內部文字 (24格旋轉)
-        data.forEach((item, i) => {
-            const angle = i * 15;
-            const box = document.createElement('div');
-            box.className = 'label-box';
-            box.style.transform = `rotate(${angle}deg)`;
-            
-            // 初正
-            box.innerHTML += `<div class="txt-chuzheng">${item.c}</div>`;
-            // 更次
-            if(item.g) box.innerHTML += `<div class="txt-geng">${item.g}</div>`;
-            // 時辰 (跨格置中)
-            if(i % 2 === 1) {
-                const s = document.createElement('div');
-                s.className = 'txt-shichen';
-                s.innerText = item.s;
-                s.style.transform = `rotate(-7.5deg)`; // 逆轉回兩格中間
-                box.appendChild(s);
-            }
-            wheel.appendChild(box);
-        });
+<div id="result">SVG 結構已鎖定，不再走位</div>
 
-        // 2. 產生外圍小時 (1, 3, 5... 23)
-        for (let h = 1; h <= 23; h += 2) {
-            const hVal = document.createElement('div');
-            hVal.className = 'h-num h-val';
-            const rad = (h * 15) * (Math.PI / 180);
-            const r = 255; // 半徑
-            hVal.style.left = `calc(50% + ${Math.sin(rad) * r}px)`;
-            hVal.style.top = `calc(50% - ${Math.cos(rad) * r}px)`;
-            hVal.innerText = h;
-            hourRing.appendChild(hVal);
+<script>
+    const svgNS = "http://www.w3.org/2000/svg";
+    const shichens = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+    const colors = [
+        "#a0c4e8", "#a0c4e8", "#d1e3f5", "#d1e3f5", "#e8f0f8", "#e8f0f8", // 子丑寅
+        "#e8f0f8", "#e8f0f8", "#fff5cc", "#fff5cc", "#ffeb99", "#ffeb99", // 卯辰巳
+        "#ffd966", "#ffd966", "#ffd966", "#ffd966", "#ffeb99", "#ffeb99", // 午未申
+        "#fff5cc", "#fff5cc", "#e8f0f8", "#e8f0f8", "#d1e3f5", "#d1e3f5"  // 酉戌亥
+    ];
+    const gengMap = { "戌":"一更", "亥":"二更", "子":"三更", "丑":"四更", "寅":"五更" };
+
+    const sectorsG = document.getElementById('sectors');
+    const textsG = document.getElementById('texts');
+    const hourG = document.getElementById('hour-labels');
+
+    // 建立扇區與文字
+    for (let i = 0; i < 24; i++) {
+        const angle = i * 15;
+        const rad1 = (angle - 90) * Math.PI / 180;
+        const rad2 = (angle + 15 - 90) * Math.PI / 180;
+        
+        // 1. 繪製扇區 (背景)
+        const x1 = 250 + 215 * Math.cos(rad1);
+        const y1 = 250 + 215 * Math.sin(rad1);
+        const x2 = 250 + 215 * Math.cos(rad2);
+        const y2 = 250 + 215 * Math.sin(rad2);
+        
+        const path = document.createElementNS(svgNS, "path");
+        path.setAttribute("d", `M 250 250 L ${x1} ${y1} A 215 215 0 0 1 ${x2} ${y2} Z`);
+        path.setAttribute("fill", colors[i]);
+        path.setAttribute("stroke", "white");
+        path.setAttribute("stroke-width", "0.5");
+        sectorsG.appendChild(path);
+
+        // 2. 繪製文字組 (初正、更次)
+        const textAngle = angle + 7.5;
+        const group = document.createElementNS(svgNS, "g");
+        group.setAttribute("transform", `rotate(${textAngle}, 250, 250)`);
+
+        // 初/正
+        const t1 = document.createElementNS(svgNS, "text");
+        t1.setAttribute("x", "250"); t1.setAttribute("y", "65");
+        t1.setAttribute("text-anchor", "middle");
+        t1.setAttribute("font-size", "16");
+        t1.textContent = i % 2 === 0 ? "初" : "正";
+        group.appendChild(t1);
+
+        // 更次
+        const curS = shichens[Math.floor(i/2)];
+        if (gengMap[curS]) {
+            const t2 = document.createElementNS(svgNS, "text");
+            t2.setAttribute("x", "250"); t2.setAttribute("y", "120");
+            t2.setAttribute("text-anchor", "middle");
+            t2.setAttribute("font-size", "14");
+            t2.textContent = gengMap[curS];
+            group.appendChild(t2);
         }
+        textsG.appendChild(group);
 
-        // 3. 抽獎邏輯
-        let currentRotation = 0;
-        document.getElementById('btn').onclick = () => {
-            const spin = Math.floor(Math.random() * 360) + 3600;
-            currentRotation += spin;
-            wheel.style.transform = `rotate(-${currentRotation}deg)`;
-            
-            const res = document.getElementById('result');
-            res.innerText = "旋轉中...";
+        // 3. 時辰 (跨格置中)
+        if (i % 2 === 0) {
+            const sGroup = document.createElementNS(svgNS, "g");
+            sGroup.setAttribute("transform", `rotate(${angle + 15}, 250, 250)`);
+            const ts = document.createElementNS(svgNS, "text");
+            ts.setAttribute("x", "250"); ts.setAttribute("y", "175");
+            ts.setAttribute("text-anchor", "middle");
+            ts.setAttribute("font-size", "32");
+            ts.setAttribute("font-weight", "bold");
+            ts.textContent = curS;
+            sGroup.appendChild(ts);
+            textsG.appendChild(sGroup);
+        }
+    }
 
-            setTimeout(() => {
-                const finalAngle = currentRotation % 360;
-                const idx = Math.floor(finalAngle / 15);
-                const win = data[idx];
-                res.innerText = `抽獎結果：${win.s}時${win.c}`;
-            }, 6000);
-        };
-    </script>
+    // 繪製外圍小時數字 (1, 3, 5... 23)
+    for (let h = 1; h <= 23; h += 2) {
+        const hAngle = h * 15;
+        const hRad = (hAngle - 90) * Math.PI / 180;
+        const tx = 250 + 240 * Math.cos(hRad);
+        const ty = 250 + 240 * Math.sin(hRad);
+        
+        const th = document.createElementNS(svgNS, "text");
+        th.setAttribute("x", tx); th.setAttribute("y", ty + 8);
+        th.setAttribute("text-anchor", "middle");
+        th.setAttribute("font-size", "22");
+        th.setAttribute("font-weight", "bold");
+        th.textContent = h;
+        hourG.appendChild(th);
+    }
+
+    // 抽獎邏輯
+    let currDeg = 0;
+    document.getElementById('btn').onclick = () => {
+        const rotate = Math.floor(Math.random() * 360) + 3600;
+        currDeg += rotate;
+        document.getElementById('wheel-svg').style.transform = `rotate(-${currDeg}deg)`;
+        
+        const res = document.getElementById('result');
+        res.innerText = "旋轉中...";
+
+        setTimeout(() => {
+            const final = currDeg % 360;
+            const idx = Math.floor(final / 15);
+            const s = shichens[Math.floor(idx/2)];
+            const p = idx % 2 === 0 ? "初" : "正";
+            res.innerText = `結果：${s}時${p}`;
+        }, 6000);
+    };
+</script>
 </body>
 </html>
