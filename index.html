@@ -2,17 +2,17 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>古制時辰輪盤 V6</title>
+    <title>古制時辰輪盤 V7 - MC互動版</title>
     <style>
         body {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-height: 100vh; margin: 0; background: #f4f4f4;
+            min-height: 100vh; margin: 0; background: #f8f9fa;
             font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
             padding: 20px;
         }
         .version { position: absolute; top: 10px; right: 20px; color: #999; }
         
-        .container { position: relative; width: 500px; height: 500px; margin-bottom: 20px; }
+        .container { position: relative; width: 480px; height: 480px; margin-bottom: 20px; }
 
         #wheel-svg {
             width: 100%; height: 100%;
@@ -21,7 +21,7 @@
         }
 
         .arrow {
-            position: absolute; top: 35px; left: 50%; transform: translateX(-50%);
+            position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
             width: 0; height: 0; border-left: 15px solid transparent;
             border-right: 15px solid transparent; border-top: 30px solid #e74c3c;
             z-index: 10;
@@ -35,24 +35,34 @@
 
         /* 題目顯示區域 */
         #quiz-panel {
-            width: 90%; max-width: 500px; background: white;
-            padding: 20px; border-radius: 12px; border: 2px solid #ddd;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center;
+            width: 95%; max-width: 500px; background: white;
+            padding: 20px; border-radius: 15px; border: 2px solid #e0e0e0;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center;
         }
-        .quiz-title { font-size: 24px; color: #e74c3c; margin-bottom: 10px; font-weight: bold; }
-        .quiz-time { font-size: 18px; color: #666; margin-bottom: 15px; }
-        .quiz-detail { font-size: 16px; line-height: 1.6; color: #333; text-align: left; }
-        .highlight { color: #2980b9; font-weight: bold; }
+        .quiz-title { font-size: 24px; color: #2c3e50; margin-bottom: 15px; font-weight: bold; }
+        
+        /* MC 選項樣式 */
+        .options-container { display: flex; flex-direction: column; gap: 10px; margin: 15px 0; }
+        .option-btn {
+            padding: 12px; border: 2px solid #3498db; background: white;
+            color: #3498db; border-radius: 8px; cursor: pointer;
+            font-size: 16px; font-weight: bold; transition: 0.3s;
+        }
+        .option-btn:hover { background: #3498db; color: white; }
+        .option-btn.correct { background: #2ecc71; color: white; border-color: #2ecc71; }
+        .option-btn.wrong { background: #e74c3c; color: white; border-color: #e74c3c; }
+
+        .quiz-detail { font-size: 15px; line-height: 1.6; color: #555; text-align: left; display: none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px; }
+        .highlight { color: #e67e22; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="version">Version: V6</div>
+<div class="version">Version: V7</div>
 
 <div class="container">
     <div class="arrow"></div>
     <div id="btn">抽</div>
-    
     <svg id="wheel-svg" viewBox="0 0 500 500">
         <g id="hour-labels"></g>
         <g id="main-group">
@@ -67,10 +77,9 @@
 
 <div id="quiz-panel">
     <div class="quiz-title" id="res-title">請開始抽獎</div>
-    <div class="quiz-time" id="res-time">對應時間將在此顯示</div>
-    <div class="quiz-detail" id="res-detail">
-        轉動輪盤，學習古代計時制度與十二時辰的奧秘。
-    </div>
+    <p id="instruction">轉動輪盤，挑戰時辰 MC 問答！</p>
+    <div class="options-container" id="options-box"></div>
+    <div class="quiz-detail" id="res-detail"></div>
 </div>
 
 <script>
@@ -79,7 +88,6 @@
     const colors = ["#a0c4e8", "#a0c4e8", "#d1e3f5", "#d1e3f5", "#e8f0f8", "#e8f0f8", "#e8f0f8", "#e8f0f8", "#fff5cc", "#fff5cc", "#ffeb99", "#ffeb99", "#ffd966", "#ffd966", "#ffd966", "#ffd966", "#ffeb99", "#ffeb99", "#fff5cc", "#fff5cc", "#e8f0f8", "#e8f0f8", "#d1e3f5", "#d1e3f5"];
     const gengMap = { "戌":"一更", "亥":"二更", "子":"三更", "丑":"四更", "寅":"五更" };
     
-    // 題目資料庫
     const timeInfo = {
         "子": { name: "夜半", desc: "是一天中的第一個時辰。此時正是黑夜中最黑暗的時刻。" },
         "丑": { name: "雞鳴", desc: "又稱荒雞。指雞叫的時候，天色由黑轉清。" },
@@ -95,7 +103,7 @@
         "亥": { name: "人定", desc: "夜深人靜，人們已經停止活動，安歇入睡。" }
     };
 
-    // 初始化輪盤 (保持 V5 的高品質 SVG 結構)
+    // --- 輪盤繪製邏輯 (維持不跑位高品質) ---
     const sectorsG = document.getElementById('sectors');
     const textsG = document.getElementById('texts');
     const hourG = document.getElementById('hour-labels');
@@ -104,14 +112,11 @@
         const angle = i * 15;
         const rad1 = (angle - 90) * Math.PI / 180;
         const rad2 = (angle + 15 - 90) * Math.PI / 180;
-        const x1 = 250 + 215 * Math.cos(rad1);
-        const y1 = 250 + 215 * Math.sin(rad1);
-        const x2 = 250 + 215 * Math.cos(rad2);
-        const y2 = 250 + 215 * Math.sin(rad2);
+        const x1 = 250 + 215 * Math.cos(rad1), y1 = 250 + 215 * Math.sin(rad1);
+        const x2 = 250 + 215 * Math.cos(rad2), y2 = 250 + 215 * Math.sin(rad2);
         const path = document.createElementNS(svgNS, "path");
         path.setAttribute("d", `M 250 250 L ${x1} ${y1} A 215 215 0 0 1 ${x2} ${y2} Z`);
-        path.setAttribute("fill", colors[i]);
-        path.setAttribute("stroke", "white");
+        path.setAttribute("fill", colors[i]); path.setAttribute("stroke", "white");
         sectorsG.appendChild(path);
 
         const group = document.createElementNS(svgNS, "g");
@@ -150,16 +155,18 @@
         hourG.appendChild(th);
     }
 
-    // 抽獎與題目生成
+    // --- MC 問答邏輯 ---
     let currDeg = 0;
     document.getElementById('btn').onclick = () => {
         const rotate = Math.floor(Math.random() * 360) + 3600;
         currDeg += rotate;
         document.getElementById('wheel-svg').style.transform = `rotate(-${currDeg}deg)`;
         
-        document.getElementById('res-title').innerText = "正在掐指一算...";
-        document.getElementById('res-time').innerText = "";
-        document.getElementById('res-detail').innerText = "";
+        // 重置面板
+        document.getElementById('res-title').innerText = "掐指計算中...";
+        document.getElementById('instruction').innerText = "等待輪盤停下...";
+        document.getElementById('options-box').innerHTML = "";
+        document.getElementById('res-detail').style.display = "none";
 
         setTimeout(() => {
             const final = currDeg % 360;
@@ -167,21 +174,45 @@
             const sName = shichens[Math.floor(idx/2)];
             const part = idx % 2 === 0 ? "初" : "正";
             
-            // 計算現代時間
-            let startHour = (Math.floor(idx/2) * 2 - 1 + 24) % 24;
-            if (idx % 2 === 1) startHour = (startHour + 1) % 24;
-            const endHour = (startHour + 1) % 24;
-            const timeStr = `${startHour.toString().padStart(2,'0')}:00 - ${endHour.toString().padStart(2,'0')}:00`;
+            // 計算正確答案
+            let startH = (Math.floor(idx/2) * 2 - 1 + 24) % 24;
+            if (idx % 2 === 1) startH = (startH + 1) % 24;
+            const correctAns = `${startH.toString().padStart(2,'0')}:00 - ${(startH + 1).toString().padStart(2,'0')}:00`;
 
-            const info = timeInfo[sName];
-            
+            // 生成錯誤答案
+            let options = [correctAns];
+            while(options.length < 3) {
+                let randH = Math.floor(Math.random() * 24);
+                let wrongAns = `${randH.toString().padStart(2,'0')}:00 - ${(randH + 1).toString().padStart(2,'0')}:00`;
+                if(!options.includes(wrongAns)) options.push(wrongAns);
+            }
+            options.sort(() => Math.random() - 0.5);
+
             document.getElementById('res-title').innerText = `【${sName}時 · ${part}】`;
-            document.getElementById('res-time').innerText = `現代時間：${timeStr}`;
-            document.getElementById('res-detail').innerHTML = `
-                <p>● 古代名稱：<span class="highlight">${info.name}</span></p>
-                <p>● 題目背景：${info.desc}</p>
-                <p>● 輪盤提示：這屬於<span class="highlight">${gengMap[sName] || '日間'}</span>時段，反映了古人「日出而作，日入而息」的生活節奏。</p>
+            document.getElementById('instruction').innerText = "請問這對應現在的哪個時間段？";
+            
+            const info = timeInfo[sName];
+            const detailBox = document.getElementById('res-detail');
+            detailBox.innerHTML = `
+                <p>● 正確答案：<span class="highlight">${correctAns}</span></p>
+                <p>● 古代稱呼：<span class="highlight">${info.name}</span></p>
+                <p>● 背景知識：${info.desc}</p>
+                <p>● 輪盤提示：此為<span class="highlight">${gengMap[sName] || '日間'}</span>，反映古人作息。</p>
             `;
+
+            options.forEach(opt => {
+                const b = document.createElement('button');
+                b.className = 'option-btn';
+                b.innerText = opt;
+                b.onclick = () => {
+                    document.querySelectorAll('.option-btn').forEach(btn => btn.disabled = true);
+                    if(opt === correctAns) b.classList.add('correct');
+                    else b.classList.add('wrong');
+                    detailBox.style.display = "block";
+                };
+                document.getElementById('options-box').appendChild(b);
+            });
+
         }, 6000);
     };
 </script>
